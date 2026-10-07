@@ -80,6 +80,59 @@ byte[] rxPdo = new byte[32]; // Actual positions / statuswords
 ushort wkc = await master.ExchangeProcessDataAsync(txPdo, rxPdo);
 ```
 
+### 3. Multi-Axis Motion Coordination & Following-Error Trip
+
+```csharp
+using ZeroBus.CanOpen;
+
+// Multi-axis coordinator ensures lockstep execution and mechanical safety
+var sync = new SyncProducer(transport);
+var coordinator = new MotionBusCoordinator(sync);
+
+coordinator.AddAxis(driveAxis1, maxAllowedFollowingError: 500);
+coordinator.AddAxis(driveAxis2, maxAllowedFollowingError: 500);
+
+// Emergency trip callback (triggers sub-ms QuickStop on mechanical jamming)
+coordinator.OnFollowingErrorTripped += (nodeId, error, max) =>
+{
+    Console.WriteLine($"[EMERGENCY] Node {nodeId} tripped following error: {error} counts!");
+};
+
+// Cyclic synchronous tick (called at 250Hz - 1kHz)
+await coordinator.SyncTickAsync(new int[] { targetPos1, targetPos2 });
+```
+
+### 4. CANopen Heartbeat & Liveness Monitor
+
+```csharp
+var monitor = new HeartbeatMonitor(transport);
+monitor.RegisterNode(nodeId: 2);
+
+monitor.OnNodeTimeout += nodeId =>
+{
+    Console.WriteLine($"[ALERT] Servo Drive Node {nodeId} connection lost!");
+};
+
+// Periodically evaluate slave liveness
+monitor.CheckTimeouts(TimeSpan.FromMilliseconds(200));
+```
+
+### 5. EtherCAT CoE (CANopen over EtherCAT) Mailbox Transfer
+
+```csharp
+using ZeroBus.EtherCat;
+
+// Build SDO Download (Write Target Velocity 0x60FF)
+byte[] sdoWriteFrame = EtherCatCoeMailbox.BuildSdoDownload(
+    index: 0x60FF, subIndex: 0,
+    value: BitConverter.GetBytes(50000),
+    slaveAddress: 1001
+);
+
+// Build SDO Upload (Read Actual Position 0x6064)
+byte[] sdoReadFrame = EtherCatCoeMailbox.BuildSdoUpload(index: 0x6064, subIndex: 0);
+```
+
 ---
 
 ## 📄 License

@@ -50,6 +50,7 @@ namespace ZeroBus.CanOpen
         public Task EnableOperationAsync(CancellationToken ct = default) => SendControlwordAsync(0x000F, ct);
         public Task DisableOperationAsync(CancellationToken ct = default) => SendControlwordAsync(0x0007, ct);
         public Task QuickStopAsync(CancellationToken ct = default) => SendControlwordAsync(0x0002, ct);
+        public Task QuickStopPdoAsync(CancellationToken ct = default) => SendCspPdoAsync(0x0002, ActualPosition, ct);
         public Task ResetFaultAsync(CancellationToken ct = default) => SendControlwordAsync(0x0080, ct);
 
         public async Task StartupServoAsync(CancellationToken ct = default)
